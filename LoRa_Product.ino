@@ -40,7 +40,9 @@ const char* updateReadyCommand = "READY_UPDATE";
 bool wifi = false;
 bool lora = true;
 unsigned int lastMillis = 0;
-unsigned int interval = 4000;
+bool waiting = true;
+unsigned int interval = 8000;
+unsigned int timeout = 6000;
 
 SSD1306 display(0x3c, 4, 15);
 ZSharpIR SharpIR(34, 1080);
@@ -127,6 +129,7 @@ void sendSignalInfo () {
   doc["payload"] = payload;
 
   sendLoraJson(doc);
+  waiting = true;
 }
 
 void startWiFi () {
@@ -178,6 +181,7 @@ void startWiFi () {
 }
 
 void parseData(int packetSize) {
+  waiting = false;
   String packet;
   packSize = String(packetSize, DEC);
   for (int i = 0; i < packetSize; i++) {
@@ -205,7 +209,7 @@ void parseData(int packetSize) {
       sendSignalInfo();
       displayLoRaData(command);
     } else if (command == getSignalInfoCommand) {
-      sendSignalInfo();
+      //sendSignalInfo();
       displayLoRaData(payload);
     }
   } else {
@@ -263,6 +267,7 @@ void setup() {
 
   delay(1500);
   displayLoRaData("");
+  sendSignalInfo();
 }
 /*
 uint16_t get_gp2d12 (uint16_t value) {
@@ -289,11 +294,16 @@ void loop() {
       parseData(packetSize);
     }
 
-    if (millis() - lastMillis > interval) {
+    if (millis() - lastMillis > interval && !waiting) {
+      sendSignalInfo();
+    }
+
+    if (millis() - lastMillis > interval + timeout && waiting) {
       rssi = "--";
       snr = "--";
       packSize = "--";
       displayLoRaData("No data received");
+      sendSignalInfo();
     }
   }
 }
