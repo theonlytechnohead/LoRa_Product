@@ -33,6 +33,7 @@ WebServer server(80);
 const char* uploadPage = "<form method='POST' action='/update' enctype='multipart/form-data'> <input type='file' name='update'> <input type='submit' value='Update KeepBox'> </form>";
 
 // Constants
+const char* getRawData = "GET_DATA_RAW";
 const char* getSignalInfoCommand = "GET_SIGNAL_INFO";
 const char* updateReadyCommand = "READY_UPDATE";
 
@@ -58,7 +59,7 @@ void handleIRtask (void* parameter) {
   for (;;) {
     //Serial.println(SharpIR.distance());
     Serial.println(analogRead(34));
-    delay(250);
+    vTaskDelay(250);
   }
 }
 
@@ -121,6 +122,21 @@ void sendSignalInfo () {
   DynamicJsonDocument doc(2048);
 
   String payload = "RSSI: " + rssi + "\nSNR: " + snr;
+  
+  String checksum = SHA256(payload);
+
+  doc["checksum"] = checksum;
+  doc["command"] = getSignalInfoCommand;
+  doc["payload"] = payload;
+
+  sendLoraJson(doc);
+  waiting = true;
+}
+
+void sendRawData () {
+  DynamicJsonDocument doc(2048);
+
+  String payload = "IR sensor: " + String(analogRead(34));
   
   String checksum = SHA256(payload);
 
@@ -211,6 +227,9 @@ void parseData(int packetSize) {
     } else if (command == getSignalInfoCommand) {
       //sendSignalInfo();
       displayLoRaData(payload);
+    } else if (command == getRawData) {
+      sendRawData();
+      displayLoRaData(payload);
     }
   } else {
     sendSignalInfo();
@@ -265,7 +284,7 @@ void setup() {
   //SPIFFS.begin();
   Serial.begin(115200);
 
-  delay(1500);
+  vTaskDelay(500);
   displayLoRaData("");
   sendSignalInfo();
 }
